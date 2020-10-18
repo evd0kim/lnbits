@@ -5,10 +5,16 @@ from typing import NamedTuple
 import shortuuid  # type: ignore
 
 
-class ATMLink(NamedTuple):
+class offlinelnurlwLink(NamedTuple):
     id: str
     wallet: str
     title: str
-    key: str
+    private_key: str
     amount: int
     used: int
+    time: int
+
+    @classmethod
+    def from_row(cls, row: Row) -> "offlinelnurlwLink":
+        data = dict(row)
+        return cls(**data)

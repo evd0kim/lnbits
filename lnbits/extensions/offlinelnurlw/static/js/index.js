@@ -13,13 +13,7 @@ var mapWithdrawLink = function (obj) {
   obj._data = _.clone(obj)
   obj.date = Quasar.utils.date.formatDate(
     new Date(obj.time * 1000),
-    'YYYY-MM-DD HH:mm'
-  )
-  obj.min_fsat = new Intl.NumberFormat(LOCALE).format(obj.min_withdrawable)
-  obj.max_fsat = new Intl.NumberFormat(LOCALE).format(obj.max_withdrawable)
-  obj.uses_left = obj.uses - obj.used
-  obj.print_url = [locationPath, 'print/', obj.id].join('')
-  obj.withdraw_url = [locationPath, obj.id].join('')
+    'YYYY-MM-DD HH:mm')
   return obj
 }
 
@@ -28,26 +22,20 @@ new Vue({
   mixins: [windowMixin],
   data: function () {
     return {
+      format: 'po',
       checker: null,
       withdrawLinks: [],
       withdrawLinksTable: {
         columns: [
-          {name: 'id', align: 'left', label: 'ID', field: 'id'},
           {name: 'title', align: 'left', label: 'Title', field: 'title'},
+          {name: 'id', align: 'left', label: 'ID', field: 'id'},
+          {name: 'private_key', align: 'left', label: 'Key', field: 'private_key'},
           {
-            name: 'wait_time',
+            name: 'amount',
             align: 'right',
-            label: 'Wait',
-            field: 'wait_time'
+            label: 'Amount withdrawn',
+            field: 'amount'
           },
-          {
-            name: 'uses_left',
-            align: 'right',
-            label: 'Uses left',
-            field: 'uses_left'
-          },
-          {name: 'min', align: 'right', label: 'Min (sat)', field: 'min_fsat'},
-          {name: 'max', align: 'right', label: 'Max (sat)', field: 'max_fsat'}
         ],
         pagination: {
           rowsPerPage: 10
@@ -65,7 +53,7 @@ new Vue({
         show: false,
         data: {
           is_unique: false,
-          title: 'Vouchers',
+          title: 'ATM link',
           min_withdrawable: 0,
           wait_time: 1
         }
@@ -90,7 +78,7 @@ new Vue({
       LNbits.api
         .request(
           'GET',
-          '/withdraw/api/v1/links?all_wallets',
+          '/offlinelnurlw/api/v1/links?all_wallets',
           this.g.user.wallets[0].inkey
         )
         .then(function (response) {
@@ -132,14 +120,6 @@ new Vue({
       })
       var data = _.omit(this.formDialog.data, 'wallet')
 
-      data.wait_time =
-        data.wait_time *
-        {
-          seconds: 1,
-          minutes: 60,
-          hours: 3600
-        }[this.formDialog.secondMultiplier]
-
       if (data.id) {
         this.updateWithdrawLink(wallet, data)
       } else {
@@ -151,11 +131,6 @@ new Vue({
         id: this.simpleformDialog.data.wallet
       })
       var data = _.omit(this.simpleformDialog.data, 'wallet')
-
-      data.wait_time = 1
-      data.min_withdrawable = data.max_withdrawable
-      data.title = 'vouchers'
-      data.is_unique = true
 
       if (data.id) {
         this.updateWithdrawLink(wallet, data)
@@ -169,16 +144,11 @@ new Vue({
       LNbits.api
         .request(
           'PUT',
-          '/withdraw/api/v1/links/' + data.id,
+          '/offlinelnurlw/api/v1/links/' + data.id,
           wallet.adminkey,
           _.pick(
             data,
-            'title',
-            'min_withdrawable',
-            'max_withdrawable',
-            'uses',
-            'wait_time',
-            'is_unique'
+            'title'
           )
         )
         .then(function (response) {
@@ -196,7 +166,7 @@ new Vue({
       var self = this
 
       LNbits.api
-        .request('POST', '/withdraw/api/v1/links', wallet.adminkey, data)
+        .request('POST', '/offlinelnurlw/api/v1/links', wallet.adminkey, data)
         .then(function (response) {
           self.withdrawLinks.push(mapWithdrawLink(response.data))
           self.formDialog.show = false
@@ -211,12 +181,12 @@ new Vue({
       var link = _.findWhere(this.withdrawLinks, {id: linkId})
 
       LNbits.utils
-        .confirmDialog('Are you sure you want to delete this withdraw link?')
+        .confirmDialog('Are you sure you want to delete this offline withdraw link?')
         .onOk(function () {
           LNbits.api
             .request(
               'DELETE',
-              '/withdraw/api/v1/links/' + linkId,
+              '/offlinelnurlw/api/v1/links/' + linkId,
               _.findWhere(self.g.user.wallets, {id: link.wallet}).adminkey
             )
             .then(function (response) {
@@ -234,10 +204,12 @@ new Vue({
     }
   },
   created: function () {
-    if (this.g.user.wallets.length) {
-      var getWithdrawLinks = this.getWithdrawLinks
+    var self = this
+    self.format = window.location.hostname
+    if (self.g.user.wallets.length) {
+      var getWithdrawLinks = self.getWithdrawLinks
       getWithdrawLinks()
-      this.checker = setInterval(function () {
+      self.checker = setInterval(function () {
         getWithdrawLinks()
       }, 20000)
     }
